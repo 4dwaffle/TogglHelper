@@ -21,6 +21,13 @@ Console.OutputEncoding = Encoding.UTF8;
 var processingDate = args.Length > 0 ? DateTime.ParseExact(args[0], "yyMMdd", CultureInfo.InvariantCulture) : (DateTime?)null;
 var processingThreshold = args.Length > 1 ? TimeSpan.Parse(args[1]) : TimeSpan.FromMinutes(5);
 
+if (processingDate is not null && processingDate.Value.AddDays(90) < DateTime.Today.Date)
+{
+    using (ConsoleColorScope.Red) Console.WriteLine("Cannot process entries older than 90 days.");
+    Console.ReadLine();
+    return;
+}
+
 var httpClient = new HttpClient
 {
     BaseAddress = appSettings.Toggl.Url,
