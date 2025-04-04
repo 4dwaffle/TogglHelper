@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Configuration;
-using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Mime;
 using System.Text;
@@ -18,10 +17,11 @@ builder.Bind(appSettings);
 
 Console.OutputEncoding = Encoding.UTF8;
 
-var processingDate = args.Length > 0 ? DateTime.ParseExact(args[0], "yyMMdd", CultureInfo.InvariantCulture) : (DateTime?)null;
+var today = DateOnly.FromDateTime(DateTime.Today);
+var processingDate = args.Length > 0 ? DateOnly.ParseExact(args[0], "yyMMdd") : today;
 var processingThreshold = args.Length > 1 ? TimeSpan.Parse(args[1]) : TimeSpan.FromMinutes(5);
 
-if (processingDate is not null && processingDate.Value.AddDays(90) < DateTime.Today.Date)
+if (processingDate.AddDays(90) < today)
 {
     using (ConsoleColorScope.Red) Console.WriteLine("Cannot process entries older than 90 days.");
     Console.ReadLine();
@@ -49,14 +49,9 @@ if (meResponse.IsSuccessStatusCode)
 {
     using (ConsoleColorScope.Green) Console.WriteLine("OK");
 
-    if (processingDate is null)
-    {
-        Console.WriteLine("No date set. Using today.");
-        processingDate = DateTime.Today;
-    }
     do
     {
-        var startDate = processingDate.Value;
+        var startDate = processingDate;
         var endDate = startDate.AddDays(1);
 
         Console.Write($"Fetching entries for {startDate:yyyy-MM-dd}...");
@@ -158,21 +153,18 @@ if (meResponse.IsSuccessStatusCode)
             }
             using (ConsoleColorScope.Yellow) Console.WriteLine("Go deeper? [Enter]");
             var goDeeperResponse = Console.ReadLine() ?? string.Empty;
-            if (goDeeperResponse.Trim().ToLowerInvariant() is "no" or "n" or "exit")
+            if (goDeeperResponse.Trim().ToLowerInvariant() is not ("no" or "n" or "exit"))
             {
-                processingDate = null;
+                processingDate = processingDate.AddDays(-1);
             }
-            else
-            {
-                processingDate -= TimeSpan.FromDays(1);
-            }
+            else break;
         }
         else
         {
             using (ConsoleColorScope.Red) Console.WriteLine(getTimeEntriesResponse.ReasonPhrase);
         }
 
-    } while (processingDate is not null);
+    } while (true);
 }
 else
 {
