@@ -54,7 +54,7 @@ if (meResponse.IsSuccessStatusCode)
         var startDate = processingDate;
         var endDate = startDate.AddDays(1);
 
-        Console.Write($"Fetching entries for {startDate:yyyy-MM-dd}...");
+        Console.Write($"Fetching entries for {startDate:yyyy-MM-dd}... ");
         var getTimeEntriesResponse = await httpClient.GetAsync($"api/v9/me/time_entries?start_date={startDate:yyyy-MM-dd}&end_date={endDate:yyyy-MM-dd}");
         var getTimeEntriesResponseJson = await getTimeEntriesResponse.Content.ReadAsStringAsync();
         if (getTimeEntriesResponse.IsSuccessStatusCode)
@@ -121,43 +121,37 @@ if (meResponse.IsSuccessStatusCode)
             if (updates.Count != 0)
             {
                 using (ConsoleColorScope.Yellow) Console.WriteLine($"Apply {updates.Count} updates? [y/N]");
-                var input = Console.ReadLine() ?? string.Empty;
-                switch (input.ToLowerInvariant())
+                if (Console.ReadKey(true).Key is ConsoleKey.Y)
                 {
-                    case "y":
-                        foreach (var update in updates)
+                    foreach (var update in updates)
+                    {
+                        Console.Write($"Updating #{update.OriginalEntry.Id}... ");
+                        var updateJson = JsonSerializer.Serialize(update);
+                        var updateContent = new StringContent(updateJson, Encoding.UTF8, MediaTypeNames.Application.Json);
+                        var updateResponse = await httpClient.PutAsync($"api/v9/workspaces/{update.OriginalEntry.WorkspaceId!.Value}/time_entries/{update.OriginalEntry.Id}", updateContent);
+                        if (updateResponse.IsSuccessStatusCode)
                         {
-                            Console.Write($"Updating #{update.OriginalEntry.Id}... ");
-                            var updateJson = JsonSerializer.Serialize(update);
-                            var updateContent = new StringContent(updateJson, Encoding.UTF8, MediaTypeNames.Application.Json);
-                            var updateResponse = await httpClient.PutAsync($"api/v9/workspaces/{update.OriginalEntry.WorkspaceId!.Value}/time_entries/{update.OriginalEntry.Id}", updateContent);
-                            if (updateResponse.IsSuccessStatusCode)
-                            {
-                                using (ConsoleColorScope.Green) Console.WriteLine("OK");
-                            }
-                            else
-                            {
-                                using (ConsoleColorScope.Red)
-                                {
-                                    Console.WriteLine(updateResponse.ReasonPhrase);
-                                    Console.WriteLine("Stopping further processing.");
-                                }
-                                break;
-                            }
+                            using (ConsoleColorScope.Green) Console.WriteLine("OK");
                         }
-                        break;
-                    default:
-                        Console.WriteLine("No changes applied.");
-                        break;
+                        else
+                        {
+                            using (ConsoleColorScope.Red)
+                            {
+                                Console.WriteLine(updateResponse.ReasonPhrase);
+                                Console.WriteLine("Stopping further processing.");
+                            }
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No changes applied.");
                 }
             }
-            using (ConsoleColorScope.Yellow) Console.WriteLine("Go deeper? [Enter]");
-            var goDeeperResponse = Console.ReadLine() ?? string.Empty;
-            if (goDeeperResponse.Trim().ToLowerInvariant() is not ("no" or "n" or "exit"))
-            {
-                processingDate = processingDate.AddDays(-1);
-            }
-            else break;
+            using (ConsoleColorScope.Yellow) Console.WriteLine("Go deeper? [Y/n]");
+            if (Console.ReadKey(true).Key is ConsoleKey.N) break;
+            processingDate = processingDate.AddDays(-1);
         }
         else
         {
