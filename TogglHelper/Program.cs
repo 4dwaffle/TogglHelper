@@ -19,7 +19,7 @@ Console.OutputEncoding = Encoding.UTF8;
 
 var today = DateOnly.FromDateTime(DateTime.Today);
 var processingDate = args.Length > 0 ? DateOnly.ParseExact(args[0], "yyMMdd") : today;
-var processingThreshold = args.Length > 1 ? TimeSpan.Parse(args[1]) : TimeSpan.FromMinutes(5);
+var processingThreshold = args.Length > 1 ? TimeSpan.Parse(args[1]) : appSettings.Threshold;
 
 var httpClient = new HttpClient
 {
