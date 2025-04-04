@@ -37,7 +37,7 @@ var httpClient = new HttpClient
 };
 
 Console.Write("Checking API connection... ");
-var meResponse = await httpClient.GetAsync("/api/v9/me");
+var meResponse = await httpClient.GetAsync("me");
 if (meResponse.IsSuccessStatusCode)
 {
     using (ConsoleColorScope.Green) Console.WriteLine("OK");
@@ -55,7 +55,7 @@ if (meResponse.IsSuccessStatusCode)
         var endDate = startDate.AddDays(1);
 
         Console.Write($"Fetching entries for {startDate:yyyy-MM-dd}... ");
-        var getTimeEntriesResponse = await httpClient.GetAsync($"api/v9/me/time_entries?start_date={startDate:yyyy-MM-dd}&end_date={endDate:yyyy-MM-dd}");
+        var getTimeEntriesResponse = await httpClient.GetAsync($"me/time_entries?start_date={startDate:yyyy-MM-dd}&end_date={endDate:yyyy-MM-dd}");
         var getTimeEntriesResponseJson = await getTimeEntriesResponse.Content.ReadAsStringAsync();
         if (getTimeEntriesResponse.IsSuccessStatusCode)
         {
@@ -80,7 +80,7 @@ if (meResponse.IsSuccessStatusCode)
             foreach (var workspaceId in workspaceIds)
             {
                 Console.Write($"Fetching projects for workspace #{workspaceId}...");
-                var getProjectsResponse = await httpClient.GetAsync($"api/v9/workspaces/{workspaceId}/projects");
+                var getProjectsResponse = await httpClient.GetAsync($"workspaces/{workspaceId}/projects");
                 var getProjectsResponseResponseJson = await getProjectsResponse.Content.ReadAsStringAsync();
                 var projects = JsonSerializer.Deserialize<Project[]>(getProjectsResponseResponseJson)!;
                 using (ConsoleColorScope.Green) Console.WriteLine($"OK ({projects.Length} projects)");
@@ -128,7 +128,7 @@ if (meResponse.IsSuccessStatusCode)
                         Console.Write($"Updating #{update.OriginalEntry.Id}... ");
                         var updateJson = JsonSerializer.Serialize(update);
                         var updateContent = new StringContent(updateJson, Encoding.UTF8, MediaTypeNames.Application.Json);
-                        var updateResponse = await httpClient.PutAsync($"api/v9/workspaces/{update.OriginalEntry.WorkspaceId!.Value}/time_entries/{update.OriginalEntry.Id}", updateContent);
+                        var updateResponse = await httpClient.PutAsync($"workspaces/{update.OriginalEntry.WorkspaceId!.Value}/time_entries/{update.OriginalEntry.Id}", updateContent);
                         if (updateResponse.IsSuccessStatusCode)
                         {
                             using (ConsoleColorScope.Green) Console.WriteLine("OK");
