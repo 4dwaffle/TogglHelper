@@ -6,7 +6,7 @@ public class AppSettings
     public class TogglSettings
     {
         public string Token { get; set; }
-
         public Uri Url { get; set; }
+        public int LimitDays { get; set; } = 90;
     }
 }
