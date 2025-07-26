@@ -6,4 +6,4 @@ Setup:
 
 Parameters:
   - [0] ***processingDate*** (yyMMdd) defaults to **DateTime.Today**
-  - [1] ***processingThreshold*** (TimeSpan) defaults to **TimeSpan.FromMinutes(5)**
+  - [1] ***processingThreshold*** (TimeSpan) defaults to appsettings value
