@@ -5,7 +5,7 @@ namespace TogglHelper;
 
 public class TimeEntryProcessor
 {
-    public static IEnumerable<TimeEntryUpdate> Process(TimeSpan threshold, params ICollection<TimeEntry> entries)
+    public static IEnumerable<TimeEntryUpdate> Process(TimeSpan threshold, TimeEntry[] entries)
     {
         return entries
             .Where(e => e.Stop is not null && e.WorkspaceId is not null) // Can't adjust such entries
