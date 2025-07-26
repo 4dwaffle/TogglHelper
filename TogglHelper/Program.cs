@@ -66,6 +66,7 @@ if (meResponse.IsSuccessStatusCode)
 
     do
     {
+        var today = DateOnly.FromDateTime(DateTime.Today);
         var minDate = today.AddDays(-appSettings.Toggl.LimitDays);
         if (processingDate < minDate)
         {
@@ -178,8 +179,8 @@ if (meResponse.IsSuccessStatusCode)
                 processingDate = processingDate.AddDays(1);
                 
                 // Stop when we reach the current month
-                var today = DateOnly.FromDateTime(DateTime.Today);
-                var firstDayOfCurrentMonth = new DateOnly(today.Year, today.Month, 1);
+                var currentToday = DateOnly.FromDateTime(DateTime.Today);
+                var firstDayOfCurrentMonth = new DateOnly(currentToday.Year, currentToday.Month, 1);
                 if (processingDate >= firstDayOfCurrentMonth)
                 {
                     Console.WriteLine("Completed processing last month.");
