@@ -7,3 +7,8 @@ Setup:
 Parameters:
   - [0] ***processingDate*** (yyMMdd) defaults to **DateTime.Today**
   - [1] ***processingThreshold*** (TimeSpan) defaults to appsettings value
+
+Options:
+  - ***--last-month*** or ***-m*** : Process all time entries for the last month instead of a single day
+    - When used with a threshold parameter, provide it as the first non-flag argument
+    - Example: `TogglHelper --last-month 00:10:00` (process last month with 10-minute threshold)
