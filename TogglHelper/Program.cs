@@ -22,14 +22,14 @@ Console.OutputEncoding = Encoding.UTF8;
 var isLastMonthMode = args.Contains("--last-month") || args.Contains("-m");
 var nonFlagArgs = args.Where(arg => !arg.StartsWith("-")).ToArray();
 
-DateTime? processingDate;
+DateOnly processingDate;
 bool processEntireMonth = false;
 
 if (isLastMonthMode)
 {
     // Calculate last month date range
-    var today = DateTime.Today;
-    var firstDayOfCurrentMonth = new DateTime(today.Year, today.Month, 1);
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    var firstDayOfCurrentMonth = new DateOnly(today.Year, today.Month, 1);
     var firstDayOfLastMonth = firstDayOfCurrentMonth.AddMonths(-1);
     processingDate = firstDayOfLastMonth;
     processEntireMonth = true;
@@ -37,17 +37,11 @@ if (isLastMonthMode)
 }
 else
 {
-    processingDate = nonFlagArgs.Length > 0 ? DateTime.ParseExact(nonFlagArgs[0], "yyMMdd", CultureInfo.InvariantCulture) : (DateTime?)null;
+    var today = DateOnly.FromDateTime(DateTime.Today);
+    processingDate = nonFlagArgs.Length > 0 ? DateOnly.ParseExact(nonFlagArgs[0], "yyMMdd") : today;
 }
 
-var processingThreshold = nonFlagArgs.Length > (isLastMonthMode ? 0 : 1) ? TimeSpan.Parse(nonFlagArgs[isLastMonthMode ? 0 : 1]) : TimeSpan.FromMinutes(5);
-
-if (processingDate is not null && processingDate.Value.AddDays(90) < DateTime.Today.Date)
-{
-    using (ConsoleColorScope.Red) Console.WriteLine("Cannot process entries older than 90 days.");
-    Console.ReadLine();
-    return;
-}
+var processingThreshold = nonFlagArgs.Length > (isLastMonthMode ? 0 : 1) ? TimeSpan.Parse(nonFlagArgs[isLastMonthMode ? 0 : 1]) : appSettings.Threshold;
 
 var httpClient = new HttpClient
 {
@@ -65,23 +59,25 @@ var httpClient = new HttpClient
 };
 
 Console.Write("Checking API connection... ");
-var meResponse = await httpClient.GetAsync("/api/v9/me");
+var meResponse = await httpClient.GetAsync("me");
 if (meResponse.IsSuccessStatusCode)
 {
     using (ConsoleColorScope.Green) Console.WriteLine("OK");
 
-    if (processingDate is null)
-    {
-        Console.WriteLine("No date set. Using today.");
-        processingDate = DateTime.Today;
-    }
     do
     {
-        var startDate = processingDate.Value;
+        var minDate = today.AddDays(-appSettings.Toggl.LimitDays);
+        if (processingDate < minDate)
+        {
+            using (ConsoleColorScope.Red) Console.WriteLine($"Cannot process entries older than {appSettings.Toggl.LimitDays} days.");
+            break;
+        }
+
+        var startDate = processingDate;
         var endDate = startDate.AddDays(1);
 
-        Console.Write($"Fetching entries for {startDate:yyyy-MM-dd}...");
-        var getTimeEntriesResponse = await httpClient.GetAsync($"api/v9/me/time_entries?start_date={startDate:yyyy-MM-dd}&end_date={endDate:yyyy-MM-dd}");
+        Console.Write($"Fetching entries for {startDate:yyyy-MM-dd}... ");
+        var getTimeEntriesResponse = await httpClient.GetAsync($"me/time_entries?start_date={startDate:yyyy-MM-dd}&end_date={endDate:yyyy-MM-dd}");
         var getTimeEntriesResponseJson = await getTimeEntriesResponse.Content.ReadAsStringAsync();
         if (getTimeEntriesResponse.IsSuccessStatusCode)
         {
@@ -106,7 +102,7 @@ if (meResponse.IsSuccessStatusCode)
             foreach (var workspaceId in workspaceIds)
             {
                 Console.Write($"Fetching projects for workspace #{workspaceId}...");
-                var getProjectsResponse = await httpClient.GetAsync($"api/v9/workspaces/{workspaceId}/projects");
+                var getProjectsResponse = await httpClient.GetAsync($"workspaces/{workspaceId}/projects");
                 var getProjectsResponseResponseJson = await getProjectsResponse.Content.ReadAsStringAsync();
                 var projects = JsonSerializer.Deserialize<Project[]>(getProjectsResponseResponseJson)!;
                 using (ConsoleColorScope.Green) Console.WriteLine($"OK ({projects.Length} projects)");
@@ -147,62 +143,54 @@ if (meResponse.IsSuccessStatusCode)
             if (updates.Count != 0)
             {
                 using (ConsoleColorScope.Yellow) Console.WriteLine($"Apply {updates.Count} updates? [y/N]");
-                var input = Console.ReadLine() ?? string.Empty;
-                switch (input.ToLowerInvariant())
+                if (Console.ReadKey(true).Key is ConsoleKey.Y)
                 {
-                    case "y":
-                        foreach (var update in updates)
+                    foreach (var update in updates)
+                    {
+                        Console.Write($"Updating #{update.OriginalEntry.Id}... ");
+                        var updateJson = JsonSerializer.Serialize(update);
+                        var updateContent = new StringContent(updateJson, Encoding.UTF8, MediaTypeNames.Application.Json);
+                        var updateResponse = await httpClient.PutAsync($"workspaces/{update.OriginalEntry.WorkspaceId!.Value}/time_entries/{update.OriginalEntry.Id}", updateContent);
+                        if (updateResponse.IsSuccessStatusCode)
                         {
-                            Console.Write($"Updating #{update.OriginalEntry.Id}... ");
-                            var updateJson = JsonSerializer.Serialize(update);
-                            var updateContent = new StringContent(updateJson, Encoding.UTF8, MediaTypeNames.Application.Json);
-                            var updateResponse = await httpClient.PutAsync($"api/v9/workspaces/{update.OriginalEntry.WorkspaceId!.Value}/time_entries/{update.OriginalEntry.Id}", updateContent);
-                            if (updateResponse.IsSuccessStatusCode)
-                            {
-                                using (ConsoleColorScope.Green) Console.WriteLine("OK");
-                            }
-                            else
-                            {
-                                using (ConsoleColorScope.Red)
-                                {
-                                    Console.WriteLine(updateResponse.ReasonPhrase);
-                                    Console.WriteLine("Stopping further processing.");
-                                }
-                                break;
-                            }
+                            using (ConsoleColorScope.Green) Console.WriteLine("OK");
                         }
-                        break;
-                    default:
-                        Console.WriteLine("No changes applied.");
-                        break;
+                        else
+                        {
+                            using (ConsoleColorScope.Red)
+                            {
+                                Console.WriteLine(updateResponse.ReasonPhrase);
+                                Console.WriteLine("Stopping further processing.");
+                            }
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No changes applied.");
                 }
             }
+            
             if (processEntireMonth)
             {
                 // In last month mode, automatically move to next day
-                processingDate = processingDate.Value.AddDays(1);
+                processingDate = processingDate.AddDays(1);
                 
                 // Stop when we reach the current month
-                var today = DateTime.Today;
-                var firstDayOfCurrentMonth = new DateTime(today.Year, today.Month, 1);
+                var today = DateOnly.FromDateTime(DateTime.Today);
+                var firstDayOfCurrentMonth = new DateOnly(today.Year, today.Month, 1);
                 if (processingDate >= firstDayOfCurrentMonth)
                 {
-                    processingDate = null;
                     Console.WriteLine("Completed processing last month.");
+                    break;
                 }
             }
             else
             {
-                using (ConsoleColorScope.Yellow) Console.WriteLine("Go deeper? [Enter]");
-                var goDeeperResponse = Console.ReadLine() ?? string.Empty;
-                if (goDeeperResponse.Trim().ToLowerInvariant() is "no" or "n" or "exit")
-                {
-                    processingDate = null;
-                }
-                else
-                {
-                    processingDate -= TimeSpan.FromDays(1);
-                }
+                using (ConsoleColorScope.Yellow) Console.WriteLine("Go deeper? [Y/n]");
+                if (Console.ReadKey(true).Key is ConsoleKey.N) break;
+                processingDate = processingDate.AddDays(-1);
             }
         }
         else
@@ -210,7 +198,7 @@ if (meResponse.IsSuccessStatusCode)
             using (ConsoleColorScope.Red) Console.WriteLine(getTimeEntriesResponse.ReasonPhrase);
         }
 
-    } while (processingDate is not null);
+    } while (true);
 }
 else
 {
