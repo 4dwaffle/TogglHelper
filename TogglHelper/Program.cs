@@ -18,8 +18,29 @@ builder.Bind(appSettings);
 
 Console.OutputEncoding = Encoding.UTF8;
 
-var processingDate = args.Length > 0 ? DateTime.ParseExact(args[0], "yyMMdd", CultureInfo.InvariantCulture) : (DateTime?)null;
-var processingThreshold = args.Length > 1 ? TimeSpan.Parse(args[1]) : TimeSpan.FromMinutes(5);
+// Check for last month option
+var isLastMonthMode = args.Contains("--last-month") || args.Contains("-m");
+var nonFlagArgs = args.Where(arg => !arg.StartsWith("-")).ToArray();
+
+DateTime? processingDate;
+bool processEntireMonth = false;
+
+if (isLastMonthMode)
+{
+    // Calculate last month date range
+    var today = DateTime.Today;
+    var firstDayOfCurrentMonth = new DateTime(today.Year, today.Month, 1);
+    var firstDayOfLastMonth = firstDayOfCurrentMonth.AddMonths(-1);
+    processingDate = firstDayOfLastMonth;
+    processEntireMonth = true;
+    Console.WriteLine($"Processing last month: {firstDayOfLastMonth:yyyy-MM}");
+}
+else
+{
+    processingDate = nonFlagArgs.Length > 0 ? DateTime.ParseExact(nonFlagArgs[0], "yyMMdd", CultureInfo.InvariantCulture) : (DateTime?)null;
+}
+
+var processingThreshold = nonFlagArgs.Length > (isLastMonthMode ? 0 : 1) ? TimeSpan.Parse(nonFlagArgs[isLastMonthMode ? 0 : 1]) : TimeSpan.FromMinutes(5);
 
 if (processingDate is not null && processingDate.Value.AddDays(90) < DateTime.Today.Date)
 {
@@ -156,15 +177,32 @@ if (meResponse.IsSuccessStatusCode)
                         break;
                 }
             }
-            using (ConsoleColorScope.Yellow) Console.WriteLine("Go deeper? [Enter]");
-            var goDeeperResponse = Console.ReadLine() ?? string.Empty;
-            if (goDeeperResponse.Trim().ToLowerInvariant() is "no" or "n" or "exit")
+            if (processEntireMonth)
             {
-                processingDate = null;
+                // In last month mode, automatically move to next day
+                processingDate = processingDate.Value.AddDays(1);
+                
+                // Stop when we reach the current month
+                var today = DateTime.Today;
+                var firstDayOfCurrentMonth = new DateTime(today.Year, today.Month, 1);
+                if (processingDate >= firstDayOfCurrentMonth)
+                {
+                    processingDate = null;
+                    Console.WriteLine("Completed processing last month.");
+                }
             }
             else
             {
-                processingDate -= TimeSpan.FromDays(1);
+                using (ConsoleColorScope.Yellow) Console.WriteLine("Go deeper? [Enter]");
+                var goDeeperResponse = Console.ReadLine() ?? string.Empty;
+                if (goDeeperResponse.Trim().ToLowerInvariant() is "no" or "n" or "exit")
+                {
+                    processingDate = null;
+                }
+                else
+                {
+                    processingDate -= TimeSpan.FromDays(1);
+                }
             }
         }
         else
