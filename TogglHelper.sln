@@ -5,6 +5,8 @@ VisualStudioVersion = 17.12.35514.174 d17.12
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TogglHelper", "TogglHelper\TogglHelper.csproj", "{AA1B71B4-3592-4F20-B0B3-EB820EB27200}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TogglHelper.Tests", "TogglHelper.Tests\TogglHelper.Tests.csproj", "{DBDB23C9-A6A4-4B3D-A368-8B1C2F68C52A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{AA1B71B4-3592-4F20-B0B3-EB820EB27200}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AA1B71B4-3592-4F20-B0B3-EB820EB27200}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AA1B71B4-3592-4F20-B0B3-EB820EB27200}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DBDB23C9-A6A4-4B3D-A368-8B1C2F68C52A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DBDB23C9-A6A4-4B3D-A368-8B1C2F68C52A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DBDB23C9-A6A4-4B3D-A368-8B1C2F68C52A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DBDB23C9-A6A4-4B3D-A368-8B1C2F68C52A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

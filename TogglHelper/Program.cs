@@ -18,6 +18,14 @@ builder.Bind(appSettings);
 
 Console.OutputEncoding = Encoding.UTF8;
 
+// Check for RVF processing command
+var isRvfMode = args.Contains("--rvf") || args.Contains("--extract-images");
+if (isRvfMode)
+{
+    await ProcessRvfCommand(args);
+    return;
+}
+
 // Check for last month option
 var isLastMonthMode = args.Contains("--last-month") || args.Contains("-m");
 var nonFlagArgs = args.Where(arg => !arg.StartsWith("-")).ToArray();
@@ -59,6 +67,73 @@ var httpClient = new HttpClient
 };
 
 // Local function definitions
+async Task ProcessRvfCommand(string[] args)
+{
+    try
+    {
+        var rvfFilePath = "";
+        var outputDirectory = "extracted_images";
+        
+        // Parse RVF-specific arguments
+        for (int i = 0; i < args.Length; i++)
+        {
+            if ((args[i] == "--rvf" || args[i] == "--extract-images") && i + 1 < args.Length)
+            {
+                rvfFilePath = args[i + 1];
+            }
+            else if (args[i] == "--output" && i + 1 < args.Length)
+            {
+                outputDirectory = args[i + 1];
+            }
+        }
+        
+        if (string.IsNullOrEmpty(rvfFilePath))
+        {
+            Console.WriteLine("Usage: TogglHelper --rvf <file.rvf> [--output <directory>]");
+            Console.WriteLine("   or: TogglHelper --extract-images <file.rvf> [--output <directory>]");
+            return;
+        }
+        
+        if (!File.Exists(rvfFilePath))
+        {
+            using (ConsoleColorScope.Red) Console.WriteLine($"Error: RVF file not found: {rvfFilePath}");
+            return;
+        }
+        
+        Console.WriteLine($"Processing RVF file: {rvfFilePath}");
+        Console.WriteLine($"Output directory: {outputDirectory}");
+        
+        var processor = new RvfProcessor();
+        
+        Console.Write("Parsing RVF document... ");
+        var document = await processor.ParseRvfAsync(rvfFilePath);
+        using (ConsoleColorScope.Green) Console.WriteLine($"OK ({document.Images.Count} images found)");
+        
+        if (document.Images.Count == 0)
+        {
+            using (ConsoleColorScope.Yellow) Console.WriteLine("No images found in the RVF file.");
+            return;
+        }
+        
+        Console.Write("Extracting images as JPEG... ");
+        var extractedFiles = await processor.ExtractImagesAsJpegAsync(document, outputDirectory);
+        using (ConsoleColorScope.Green) Console.WriteLine($"OK ({extractedFiles.Count} images extracted)");
+        
+        Console.WriteLine($"\nExtraction completed successfully!");
+        Console.WriteLine($"Images saved to: {Path.GetFullPath(outputDirectory)}");
+        
+        foreach (var file in extractedFiles)
+        {
+            Console.WriteLine($"  - {Path.GetFileName(file)}");
+        }
+    }
+    catch (Exception ex)
+    {
+        using (ConsoleColorScope.Red) Console.WriteLine($"Error processing RVF file: {ex.Message}");
+        Environment.ExitCode = 1;
+    }
+}
+
 async Task ProcessLastMonth(HttpClient httpClient, DateOnly startDate, TimeSpan threshold, AppSettings settings)
 {
     var today = DateOnly.FromDateTime(DateTime.Today);
